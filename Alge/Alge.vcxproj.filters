@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Archivos de origen">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Archivos de encabezado">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Archivos de recursos">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Archivos de encabezado\definitions">
+      <UniqueIdentifier>{6a12afb3-3070-4db2-b879-4f0d09754bcf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\implementations">
+      <UniqueIdentifier>{af3319fa-faa6-42e6-bd28-663d47793baf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\definitions\vector">
+      <UniqueIdentifier>{90aa938d-7fc0-4a64-a912-da7367fc6201}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\implementations\vector">
+      <UniqueIdentifier>{d211c671-d07a-429f-a6db-3e281b6567a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\implementations\functions">
+      <UniqueIdentifier>{6b5fa043-f882-410c-a351-abfa66639b0c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\parallel">
+      <UniqueIdentifier>{a531747b-1826-4a0c-80c0-ba6c8dd85d8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\definitions\matrix">
+      <UniqueIdentifier>{5bf204a1-798d-421f-b6c7-b6be744ff2b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\implementations\matrix">
+      <UniqueIdentifier>{e062ea49-6efe-410e-a881-80d918cf9391}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Alge.cpp">
+      <Filter>Archivos de origen</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="definitions\initializer.h">
+      <Filter>Archivos de encabezado\definitions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\quickSort.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="parallel\parallelFor.hpp">
+      <Filter>Archivos de encabezado\parallel</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\vector\vectorDouble.h">
+      <Filter>Archivos de encabezado\definitions\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\vector\vectorFloat.h">
+      <Filter>Archivos de encabezado\definitions\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\vector\vectorUint64_t.h">
+      <Filter>Archivos de encabezado\definitions\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\vector\vectorUint8_t.h">
+      <Filter>Archivos de encabezado\definitions\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\vector\vectorInt.h">
+      <Filter>Archivos de encabezado\definitions\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\vector\vectorDouble.hpp">
+      <Filter>Archivos de encabezado\implementations\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\vector\vectorFloat.hpp">
+      <Filter>Archivos de encabezado\implementations\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\vector\vectorUint64_t.hpp">
+      <Filter>Archivos de encabezado\implementations\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\vector\vectorUint8_t.hpp">
+      <Filter>Archivos de encabezado\implementations\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\vector\vectorInt.hpp">
+      <Filter>Archivos de encabezado\implementations\vector</Filter>
+    </ClInclude>
+    <ClInclude Include="alge.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\binarySearch.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\matrix\matrixDouble.h">
+      <Filter>Archivos de encabezado\definitions\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\matrix\matrixFloat.h">
+      <Filter>Archivos de encabezado\definitions\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="definitions\matrix\matrixUint8_t.h">
+      <Filter>Archivos de encabezado\definitions\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\matrix\matrixUint8_t.hpp">
+      <Filter>Archivos de encabezado\implementations\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\matrix\matrixFloat.hpp">
+      <Filter>Archivos de encabezado\implementations\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\matrix\matrixDouble.hpp">
+      <Filter>Archivos de encabezado\implementations\matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\clip.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\concatenate.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\cout.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\dot.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\kernelDensity.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\randomGenerator.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\reversedOperators.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\vectorize.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+    <ClInclude Include="implementations\functions\where.hpp">
+      <Filter>Archivos de encabezado\implementations\functions</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
