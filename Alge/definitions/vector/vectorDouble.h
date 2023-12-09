@@ -275,102 +275,152 @@ namespace alge
 		template<bool parallel = false>
 		inline vector<double> pow(vector<double>& other);
 
+		template<bool parallel = false>
 		inline void self_pow(double exponent);
 
+		template<bool parallel = false>
 		inline void self_pow(vector<double>& other);
 
 		// Root
 
+		template<bool parallel = false>
 		inline vector<double> root(double index);
 
+		template<bool parallel = false>
 		inline vector<double> root(vector<double>& other);
 
+		template<bool parallel = false>
 		inline void self_root(double index);
 
+		template<bool parallel = false>
 		inline void self_root(vector<double>& other);
+
+		// Sqrt
+
+		template<bool parallel = false>
+		inline vector<double> sqrt();
+
+		template<bool parallel = false>
+		inline void self_sqrt();
+
+		// Cbrt
+
+		template<bool parallel = false>
+		inline vector<double> cbrt();
+
+		template<bool parallel = false>
+		inline void self_cbrt();
 
 		// Log
 
+		template<bool parallel = false>
 		inline vector<double> log();
 
+		template<bool parallel = false>
 		inline void self_log();
 
 		// Log2
 
+		template<bool parallel = false>
 		inline vector<double> log2();
 
+		template<bool parallel = false>
 		inline void self_log2();
 
 		// Log10
 
+		template<bool parallel = false>
 		inline vector<double> log10();
 
+		template<bool parallel = false>
 		inline void self_log10();
 
 		// Exp
 
+		template<bool parallel = false>
 		inline vector<double> exp();
 
+		template<bool parallel = false>
 		inline void self_exp();
 
 		// Exp2
 
+		template<bool parallel = false>
 		inline vector<double> exp2();
 
+		template<bool parallel = false>
 		inline void self_exp2();
 
 		// Tan
 
+		template<bool parallel = false>
 		inline vector<double> tan();
 
+		template<bool parallel = false>
 		inline void self_tan();
 
 		// Cos
 
+		template<bool parallel = false>
 		inline vector<double> cos();
 
+		template<bool parallel = false>
 		inline void self_cos();
 
 		// Acos
 
+		template<bool parallel = false>
 		inline vector<double> acos();
 
+		template<bool parallel = false>
 		inline void self_acos();
 
 		// Atan
 
+		template<bool parallel = false>
 		inline vector<double> atan();
 
+		template<bool parallel = false>
 		inline void self_atan();
 
 		// Abs
 
+		template<bool parallel = false>
 		inline vector<double> abs();
 
+		template<bool parallel = false>
 		inline void self_abs();
 
 		// Round
 
+		template<bool parallel = false>
 		inline vector<double> round();
 
+		template<bool parallel = false>
 		inline void self_round();
 
 		// Floor
 
+		template<bool parallel = false>
 		inline vector<double> floor();
 
+		template<bool parallel = false>
 		inline void self_floor();
 
 		// Ceil
 
+		template<bool parallel = false>
 		inline vector<double> ceil();
 
+		template<bool parallel = false>
 		inline void self_ceil();
 
 		// Max
 
+		template<bool parallel = false>
 		inline double max();
 
+		template<bool parallel = false>
 		inline uint64_t argmax();
 
 		// Min

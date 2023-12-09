@@ -15277,8 +15277,7 @@ namespace alge
 				__m128d high = _mm256_extractf128_pd(_min, 1);
 
 				low = _mm_min_pd(low, high);
-				long long minLong = _mm_extract_epi64(low, 0);
-				double min = reinterpret_cast<double&>(minLong);
+				double min = _mm_cvtsd_f64(low);
 
 				for (size_t j = finalPosCols; j < cols; j++)
 				{
@@ -15325,8 +15324,7 @@ namespace alge
 				__m128d high = _mm256_extractf128_pd(_min, 1);
 
 				low = _mm_min_pd(low, high);
-				long long minLong = _mm_extract_epi64(low, 0);
-				double min = reinterpret_cast<double&>(minLong);
+				double min = _mm_cvtsd_f64(low);
 
 				for (size_t i = finalPosRows; i < rows; i++)
 				{
@@ -15447,8 +15445,7 @@ namespace alge
 		__m128d high = _mm256_extractf128_pd(_min, 1);
 
 		low = _mm_min_pd(low, high);
-		long long temp_min_long_long = _mm_extract_epi64(low, 0);
-		double temp_min_d = reinterpret_cast<double&>(temp_min_long_long);
+		double temp_min_d = _mm_cvtsd_f64(low);
 
 		if (temp_min_d < min) min = temp_min_d;
 
@@ -15941,8 +15938,7 @@ namespace alge
 				__m128d high = _mm256_extractf128_pd(_max, 1);
 
 				low = _mm_max_pd(low, high);
-				long long maxLong = _mm_extract_epi64(low, 0);
-				double max = reinterpret_cast<double&>(maxLong);
+				double max = _mm_cvtsd_f64(low);
 
 				for (size_t j = finalPosCols; j < cols; j++)
 				{
@@ -15989,8 +15985,7 @@ namespace alge
 				__m128d high = _mm256_extractf128_pd(_max, 1);
 
 				low = _mm_max_pd(low, high);
-				long long maxLong = _mm_extract_epi64(low, 0);
-				double max = reinterpret_cast<double&>(maxLong);
+				double max = _mm_cvtsd_f64(low);
 
 				for (size_t i = finalPosRows; i < rows; i++)
 				{
@@ -16111,8 +16106,7 @@ namespace alge
 		__m128d high = _mm256_extractf128_pd(_max, 1);
 
 		low = _mm_max_pd(low, high);
-		long long temp_max_long_long = _mm_extract_epi64(low, 0);
-		double temp_max_d = reinterpret_cast<double&>(temp_max_long_long);
+		double temp_max_d = _mm_cvtsd_f64(low);
 
 		if (temp_max_d > max) max = temp_max_d;
 

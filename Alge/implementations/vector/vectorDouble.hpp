@@ -2611,6 +2611,7 @@ namespace alge
 						dataResult[i] = std::pow(data1[i], data2[i]);
 					}
 				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
 		}
 		else
 		{
@@ -2626,6 +2627,7 @@ namespace alge
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_pow(double exponent)
 	{
 		size_t size = this->_size;
@@ -2634,18 +2636,47 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		__m256d _exponet = _mm256_set1_pd(exponent);
+		if constexpr (parallel)
+		{
+			double* parameters[2]{ data1, &exponent };
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _exponet));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+
+					double* data1 = parameters[0];
+					double exponent = *parameters[1];
+
+					__m256d _exponet = _mm256_broadcast_sd(&exponent);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					for (size_t i = params->start; i < finalPos; i += 4)
+					{
+						_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _exponet));
+					}
+					for (size_t i = finalPos; i < params->end; i++)
+					{
+						data1[i] = std::pow(data1[i], exponent);
+					}
+				};
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::pow(data1[i], exponent);
+			__m256d _exponet = _mm256_set1_pd(exponent);
+			for (size_t i = 0; i < finalPos; i += 4)
+			{
+				_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _exponet));
+			}
+			for (size_t i = finalPos; i < size; i++)
+			{
+				data1[i] = std::pow(data1[i], exponent);
+			}
 		}
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_pow(vector<double>& other)
 	{
 #ifdef _DEBUG
@@ -2660,18 +2691,45 @@ namespace alge
 
 		double* data2 = other._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_load_pd(&data2[i])));
+			double* parameters[2]{ data1, data2 };
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* data2 = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					for (size_t i = params->start; i < finalPos; i += 4)
+					{
+						_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_load_pd(&data2[i])));
+					}
+					for (size_t i = params->start; i < params->end; i++)
+					{
+						data1[i] = std::pow(data1[i], data2[i]);
+					}
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::pow(data1[i], data2[i]);
+			for (size_t i = 0; i < finalPos; i += 4)
+			{
+				_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_load_pd(&data2[i])));
+			}
+			for (size_t i = finalPos; i < size; i++)
+			{
+				data1[i] = std::pow(data1[i], data2[i]);
+			}
 		}
 	}
 
 	// Root
 
+	template<bool parallel>
 	inline vector<double> vector<double>::root(double index)
 	{
 		size_t size = this->_size;
@@ -2684,21 +2742,47 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		index = 1 / index;
+		index = 1.0 / index;
 
-		__m256d _index = _mm256_set1_pd(index);
+#define vectorDouble__root__num(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _index)); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::pow(data1[i], index); \
+		}
 
-		for (size_t i = 0; i < finalPos; i += 4)
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&dataResult[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _index));
+			double* parameters[3]{ data1, &index, dataResult };
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double index = *parameters[1];
+					double* dataResult = parameters[2];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					__m256d _index = _mm256_broadcast_sd(&index);
+
+					vectorDouble__root__num(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			dataResult[i] = std::pow(data1[i], index);
+			__m256d _index = _mm256_broadcast_sd(&index);
+			vectorDouble__root__num(0, finalPos, size);
 		}
+
 		return result;
 	}
 
+	template<bool parallel>
 	inline vector<double> vector<double>::root(vector<double>& other)
 	{
 #ifdef _DEBUG
@@ -2717,41 +2801,96 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		__m256d ones = _mm256_set1_pd(1.0);
-
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_div_pd(ones, _mm256_load_pd(&data2[i]))));
+#define vectorDouble__root__other(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_div_pd(ones, _mm256_load_pd(&data2[i])))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::pow(data1[i], 1.0 / data2[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::pow(data1[i], 1 / data2[i]);
+			double* parameters[3]{ data1, data2, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					__m256d ones = _mm256_set1_pd(1.0);
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* data2 = parameters[1];
+					double* dataResult = parameters[2];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__root__other(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			__m256d ones = _mm256_set1_pd(1.0);
+
+			vectorDouble__root__other(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_root(double index)
 	{
 		size_t size = this->_size;
 
 		size_t finalPos = this->finalPos;
 
+		index = 1.0 / index;
+
 		double* data1 = this->_data;
 
-		index = 1 / index;
-
-		__m256d _index = _mm256_set1_pd(index);
-
-		for (size_t i = 0; i < finalPos; i += 4)
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _index));
+			double* parameters[2]{ data1, &index };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+
+					double* data1 = parameters[0];
+					double index = *parameters[1];
+
+					__m256d _index = _mm256_broadcast_sd(&index);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					for (size_t i = params->start; i < finalPos; i += 4)
+					{
+						_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _index));
+					}
+					for (size_t i = finalPos; i < params->end; i++)
+					{
+						data1[i] = std::pow(data1[i], index);
+					}
+				};
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::pow(data1[i], index);
+			__m256d _index = _mm256_set1_pd(index);
+			for (size_t i = 0; i < finalPos; i += 4)
+			{
+				_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _index));
+			}
+			for (size_t i = finalPos; i < size; i++)
+			{
+				data1[i] = std::pow(data1[i], index);
+			}
 		}
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_root(vector<double>& other)
 	{
 #ifdef _DEBUG
@@ -2766,20 +2905,222 @@ namespace alge
 
 		double* data2 = other._data;
 
-		__m256d ones = _mm256_set1_pd(1.0);
+		if constexpr (parallel)
+		{
+			double* parameters[2]{ data1, data2 };
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* data2 = parameters[1];
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_div_pd(ones, _mm256_load_pd(&data2[i]))));
+					__m256d ones = _mm256_set1_pd(1.0);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					for (size_t i = params->start; i < finalPos; i += 4)
+					{
+						_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_div_pd(ones, _mm256_load_pd(&data2[i]))));
+					}
+					for (size_t i = params->start; i < params->end; i++)
+					{
+						data1[i] = std::pow(data1[i], 1.0 / data2[i]);
+					}
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::pow(data1[i], 1 / data2[i]);
+			__m256d ones = _mm256_set1_pd(1.0);
+			for (size_t i = 0; i < finalPos; i += 4)
+			{
+				_mm256_store_pd(&data1[i], _mm256_pow_pd(_mm256_load_pd(&data1[i]), _mm256_div_pd(ones, _mm256_load_pd(&data2[i]))));
+			}
+			for (size_t i = finalPos; i < size; i++)
+			{
+				data1[i] = std::pow(data1[i], 1.0 / data2[i]);
+			}
 		}
 	}
 
+	// Sqrt
+
+	template<bool parallel>
+	inline vector<double> vector<double>::sqrt()
+	{
+		size_t size = this->_size;
+
+		size_t finalPos = this->finalPos;
+
+		double* data1 = this->_data;
+
+		vector<double> result(size);
+
+		double* dataResult = result._data;
+
+#define vectorDouble__sqrt(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_sqrt_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::sqrt(data1[i]); \
+		}
+
+		if constexpr (parallel)
+		{
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__sqrt(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__sqrt(0, finalPos, size);
+		}
+		return result;
+	}
+
+	template<bool parallel>
+	inline void vector<double>::self_sqrt()
+	{
+		size_t size = this->_size;
+
+		size_t finalPos = this->finalPos;
+
+		double* data1 = this->_data;
+
+#define vectorDouble__selfsqrt(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_sqrt_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::sqrt(data1[i]); \
+		} \
+
+		if constexpr (parallel)
+		{
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfsqrt(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
+		}
+		else
+		{
+			vectorDouble__selfsqrt(0, finalPos, size);
+		}
+	}
+
+	// Cbrt
+
+	template<bool parallel>
+	inline vector<double> vector<double>::cbrt()
+	{
+		size_t size = this->_size;
+
+		size_t finalPos = this->finalPos;
+
+		double* data1 = this->_data;
+
+		vector<double> result(size);
+
+		double* dataResult = result._data;
+
+#define vectorDouble__cbrt(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_cbrt_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::cbrt(data1[i]); \
+		}
+
+		if constexpr (parallel)
+		{
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__cbrt(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__cbrt(0, finalPos, size);
+		}
+		return result;
+	}
+
+	template<bool parallel>
+	inline void vector<double>::self_cbrt()
+	{
+		size_t size = this->_size;
+
+		size_t finalPos = this->finalPos;
+
+		double* data1 = this->_data;
+
+#define vectorDouble__selfcbrt(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_cbrt_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::cbrt(data1[i]); \
+		} \
+
+		if constexpr (parallel)
+		{
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfcbrt(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
+		}
+		else
+		{
+			vectorDouble__selfcbrt(0, finalPos, size);
+		}
+	}
+	
 	// Log
 
+	template<bool parallel>
 	inline vector<double> vector<double>::log()
 	{
 		size_t size = this->_size;
@@ -2792,17 +3133,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_log_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__log(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_log_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::log(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+		
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::log(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__log(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__log(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_log()
 	{
 		size_t size = this->_size;
@@ -2811,18 +3176,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfLog(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_log_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::log(data1[i]); \
+		} \
+		
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_log_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfLog(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::log(data1[i]);
+			vectorDouble__selfLog(0, finalPos, size);
 		}
 	}
 
 	// Log2
 
+	template<bool parallel>
 	inline vector<double> vector<double>::log2()
 	{
 		size_t size = this->_size;
@@ -2835,17 +3220,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_log2_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__log2(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_log2_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::log2(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::log2(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__log2(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__log2(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_log2()
 	{
 		size_t size = this->_size;
@@ -2854,18 +3263,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selflog2(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_log2_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::log2(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_log2_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selflog2(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::log2(data1[i]);
+			vectorDouble__selflog2(0, finalPos, size);
 		}
 	}
 
 	// Log10
 
+	template<bool parallel>
 	inline vector<double> vector<double>::log10()
 	{
 		size_t size = this->_size;
@@ -2878,17 +3307,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_log10_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__log10(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_log10_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::log10(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::log10(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__log10(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__log10(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_log10()
 	{
 		size_t size = this->_size;
@@ -2897,18 +3350,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selflog10(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_log10_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::log10(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_log10_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selflog10(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::log10(data1[i]);
+			vectorDouble__selflog10(0, finalPos, size);
 		}
 	}
 
 	// Exp
 
+	template<bool parallel>
 	inline vector<double> vector<double>::exp()
 	{
 		size_t size = this->_size;
@@ -2921,17 +3394,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_exp_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__exp(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_exp_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::exp(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::exp(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__exp(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__exp(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_exp()
 	{
 		size_t size = this->_size;
@@ -2940,18 +3437,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfexp(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_exp_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::exp(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_exp_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfexp(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::exp(data1[i]);
+			vectorDouble__selfexp(0, finalPos, size);
 		}
 	}
 
 	// Exp2
 
+	template<bool parallel>
 	inline vector<double> vector<double>::exp2()
 	{
 		size_t size = this->_size;
@@ -2964,17 +3481,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_exp2_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__exp2(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_exp2_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::exp2(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::exp2(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__exp2(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__exp2(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_exp2()
 	{
 		size_t size = this->_size;
@@ -2983,18 +3524,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfexp2(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_exp2_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::exp2(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_exp2_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfexp2(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::exp2(data1[i]);
+			vectorDouble__selfexp2(0, finalPos, size);
 		}
 	}
 
 	// Tan
 
+	template<bool parallel>
 	inline vector<double> vector<double>::tan()
 	{
 		size_t size = this->_size;
@@ -3007,17 +3568,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_tan_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__tan(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_tan_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::tan(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::tan(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__tan(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__tan(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_tan()
 	{
 		size_t size = this->_size;
@@ -3026,18 +3611,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selftan(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_tan_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::tan(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_tan_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selftan(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::tan(data1[i]);
+			vectorDouble__selftan(0, finalPos, size);
 		}
 	}
 
 	// Cos
 
+	template<bool parallel>
 	inline vector<double> vector<double>::cos()
 	{
 		size_t size = this->_size;
@@ -3050,17 +3655,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_cos_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__cos(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_cos_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::cos(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::cos(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__cos(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__cos(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_cos()
 	{
 		size_t size = this->_size;
@@ -3069,18 +3698,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfcos(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_cos_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::cos(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_cos_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfcos(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::cos(data1[i]);
+			vectorDouble__selfcos(0, finalPos, size);
 		}
 	}
 
 	// Acos
 
+	template<bool parallel>
 	inline vector<double> vector<double>::acos()
 	{
 		size_t size = this->_size;
@@ -3093,17 +3742,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_acos_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__acos(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_acos_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::acos(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::acos(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__acos(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__acos(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_acos()
 	{
 		size_t size = this->_size;
@@ -3112,18 +3785,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfacos(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_acos_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::acos(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_acos_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfacos(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::acos(data1[i]);
+			vectorDouble__selfacos(0, finalPos, size);
 		}
 	}
 
 	// Atan
 
+	template<bool parallel>
 	inline vector<double> vector<double>::atan()
 	{
 		size_t size = this->_size;
@@ -3136,17 +3829,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_atan_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__atan(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_atan_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::atan(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::atan(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__atan(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__atan(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_atan()
 	{
 		size_t size = this->_size;
@@ -3155,18 +3872,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfatan(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_atan_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::atan(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_atan_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfatan(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::atan(data1[i]);
+			vectorDouble__selfatan(0, finalPos, size);
 		}
 	}
 
 	// Abs
 
+	template<bool parallel>
 	inline vector<double> vector<double>::abs()
 	{
 		size_t size = this->_size;
@@ -3181,17 +3918,41 @@ namespace alge
 
 		__m256d mask = _mm256_set1_pd(-0.0);
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_andnot_pd(mask, _mm256_load_pd(&data1[i])));
+#define vectorDouble__abs(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_andnot_pd(mask, _mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::fabs(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::fabs(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__abs(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__abs(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_abs()
 	{
 		size_t size = this->_size;
@@ -3202,18 +3963,38 @@ namespace alge
 
 		__m256d mask = _mm256_set1_pd(-0.0);
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfabs(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_andnot_pd(mask, _mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::fabs(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_andnot_pd(mask, _mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfabs(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::fabs(data1[i]);
+			vectorDouble__selfabs(0, finalPos, size);
 		}
 	}
 
 	// Round
 
+	template<bool parallel>
 	inline vector<double> vector<double>::round()
 	{
 		size_t size = this->_size;
@@ -3226,17 +4007,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_round_pd(_mm256_load_pd(&data1[i]), _MM_FROUND_TO_NEAREST_INT));
+#define vectorDouble__round(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_round_pd(_mm256_load_pd(&data1[i]), _MM_FROUND_TO_NEAREST_INT)); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::round(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::round(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__round(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__round(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_round()
 	{
 		size_t size = this->_size;
@@ -3245,18 +4050,39 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfround(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_round_pd(_mm256_load_pd(&data1[i]), _MM_FROUND_TO_NEAREST_INT)); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::round(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_round_pd(_mm256_load_pd(&data1[i]), _MM_FROUND_TO_NEAREST_INT));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfround(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::round(data1[i]);
+			vectorDouble__selfround(0, finalPos, size);
 		}
 	}
 
+
 	// Floor
 
+	template<bool parallel>
 	inline vector<double> vector<double>::floor()
 	{
 		size_t size = this->_size;
@@ -3269,17 +4095,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_floor_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__floor(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_floor_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::floor(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::floor(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__floor(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__floor(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_floor()
 	{
 		size_t size = this->_size;
@@ -3288,18 +4138,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selffloor(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_floor_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::floor(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_floor_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selffloor(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::floor(data1[i]);
+			vectorDouble__selffloor(0, finalPos, size);
 		}
 	}
 
 	// Ceil
 
+	template<bool parallel>
 	inline vector<double> vector<double>::ceil()
 	{
 		size_t size = this->_size;
@@ -3312,17 +4182,41 @@ namespace alge
 
 		double* dataResult = result._data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_mm256_store_pd(&dataResult[i], _mm256_ceil_pd(_mm256_load_pd(&data1[i])));
+#define vectorDouble__ceil(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&dataResult[i], _mm256_ceil_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			dataResult[i] = std::ceil(data1[i]); \
 		}
-		for (size_t i = finalPos; i < size; i++)
+
+		if constexpr (parallel)
 		{
-			dataResult[i] = std::ceil(data1[i]);
+			double* parameters[2]{ data1, dataResult };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* dataResult = parameters[1];
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__ceil(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+		}
+		else
+		{
+			vectorDouble__ceil(0, finalPos, size);
 		}
 		return result;
 	}
 
+	template<bool parallel>
 	inline void vector<double>::self_ceil()
 	{
 		size_t size = this->_size;
@@ -3331,18 +4225,38 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		for (size_t i = 0; i < finalPos; i += 4)
+#define vectorDouble__selfceil(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_mm256_store_pd(&data1[i], _mm256_ceil_pd(_mm256_load_pd(&data1[i]))); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			data1[i] = std::ceil(data1[i]); \
+		} \
+
+		if constexpr (parallel)
 		{
-			_mm256_store_pd(&data1[i], _mm256_ceil_pd(_mm256_load_pd(&data1[i])));
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double* data1 = reinterpret_cast<double*>(params->extraParameters);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__selfceil(params->start, finalPos, params->end);
+				};
+			parallel::parallelFor(func, 0, size, 4, data1);
 		}
-		for (size_t i = finalPos; i < size; i++)
+		else
 		{
-			data1[i] = std::ceil(data1[i]);
+			vectorDouble__selfceil(0, finalPos, size);
 		}
 	}
 
 	// Max
 
+	template<bool parallel>
 	inline double vector<double>::max()
 	{
 		size_t size = this->_size;
@@ -3351,33 +4265,67 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		__m256d _max = _mm256_set1_pd(DBL_MIN);
-
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			_max = _mm256_max_pd(_max, _mm256_load_pd(&data1[i]));
+#define vectorDouble__max(start, end1, end2) \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			_max = _mm256_max_pd(_max, _mm256_load_pd(&data1[i])); \
+		} \
+		 \
+		__m128d val1 = _mm256_castpd256_pd128(_max); \
+		 \
+		__m128d val2 = _mm256_extractf128_pd(_max, 1); \
+		 \
+		val1 = _mm_max_pd(val1, val2); \
+		 \
+		val2 = _mm_permute_pd(val1, 0b01); \
+		 \
+		val1 = _mm_max_pd(val1, val2); \
+		 \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			val1 = _mm_max_sd(val1, _mm_load_pd(&data1[i])); \
 		}
 
-		__m128d val1 = _mm256_castpd256_pd128(_max);
-
-		__m128d val2 = _mm256_extractf128_pd(_max, 1);
-
-		val1 = _mm_max_pd(val1, val2);
-
-		val2 = _mm_permute_pd(val1, 0b01);
-
-		val1 = _mm_max_pd(val1, val2);
-
-		double max = _mm_cvtsd_f64(val1);
-
-		for (size_t i = finalPos; i < size; i++)
+		if constexpr (parallel)
 		{
-			double data = data1[i];
-			if (data > max) max = data;
+			double* maxArr = new double[parallel::threadsInfo.nThreads];
+			double* parameters[2]{ data1, maxArr };
+
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					double** parameters = reinterpret_cast<double**>(params->extraParameters);
+					double* data1 = parameters[0];
+					double* maxArr = parameters[1];
+
+					__m256d _max = _mm256_set1_pd(DBL_MIN);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+
+					vectorDouble__max(params->start, finalPos, params->end);
+					_mm_store_sd(&maxArr[params->id], val1);
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+
+			double max = DBL_MIN;
+			for (size_t i = 0; i < parallel::threadsInfo.nThreads; i++)
+			{
+				if (maxArr[i] > max) max = maxArr[i];
+			}
+			return max;
 		}
-		return max;
+		else
+		{
+			__m256d _max = _mm256_set1_pd(DBL_MIN);
+
+			vectorDouble__max(0, finalPos, size);
+
+			double max = _mm_cvtsd_f64(val1);
+			return max;
+		}
 	}
 
+	template<bool parallel>
 	inline uint64_t vector<double>::argmax()
 	{
 		size_t size = this->_size;
@@ -3386,54 +4334,109 @@ namespace alge
 
 		double* data1 = this->_data;
 
-		__m256d _max = _mm256_set1_pd(DBL_MIN);
-
-		double max = DBL_MIN;
-		uint64_t indice = 0;
-
-		__m256i indices = _mm256_setr_epi64x(0, 1, 2, 3);
-
-		__m256i maxIndices = _mm256_setr_epi64x(0, 1, 2, 3);
-
-		__m256i four = _mm256_set1_epi64x(4);
-
-		for (size_t i = 0; i < finalPos; i += 4)
-		{
-			__m256d a = _mm256_load_pd(&data1[i]);
-
-			__m256d mask = _mm256_cmp_pd(a, _max, _CMP_GT_OQ);
-
-			maxIndices = _mm256_castpd_si256(_mm256_blendv_pd(_mm256_castsi256_pd(maxIndices), _mm256_castsi256_pd(indices), mask));
-
-			_max = _mm256_blendv_pd(_max, a, mask);
-
-			indices = _mm256_add_epi64(indices, four);
+#define vectorDouble__argmax(start, end1, end2) \
+		__m256d _max = _mm256_set1_pd(DBL_MIN); \
+		 \
+		double max = DBL_MIN; \
+		uint64_t indice = 0; \
+		 \
+		__m256i indices = _mm256_setr_epi64x(0, 1, 2, 3); \
+		 \
+		__m256i maxIndices = _mm256_setr_epi64x(0, 1, 2, 3); \
+		 \
+		__m256i four = _mm256_set1_epi64x(4); \
+		 \
+		for (size_t i = start; i < end1; i += 4) \
+		{ \
+			__m256d a = _mm256_load_pd(&data1[i]); \
+			 \
+			__m256d mask = _mm256_cmp_pd(a, _max, _CMP_GT_OQ); \
+			 \
+			maxIndices = _mm256_castpd_si256(_mm256_blendv_pd(_mm256_castsi256_pd(maxIndices), _mm256_castsi256_pd(indices), mask)); \
+			 \
+			_max = _mm256_blendv_pd(_max, a, mask); \
+			 \
+			indices = _mm256_add_epi64(indices, four); \
+		} \
+		for (size_t i = end1; i < end2; i++) \
+		{ \
+			double data = data1[i]; \
+			if (data > max) \
+			{ \
+				max = data; \
+				indice = i; \
+			} \
+		} \
+		__m128d val1 = _mm256_castpd256_pd128(_max); \
+		__m128d val2 = _mm256_extractf128_pd(_max, 1); \
+		 \
+		__m128i val1_i = _mm256_castsi256_si128(maxIndices); \
+		__m128i val2_i = _mm256_extractf128_si256(maxIndices, 1); \
+		 \
+		__m128d mask; \
+		 \
+		mask = _mm_cmp_pd(val1, val2, _CMP_GT_OQ); \
+		val1 = _mm_blendv_pd(val2, val1, mask); \
+		val1_i = _mm_castpd_si128(_mm_blendv_pd(_mm_castsi128_pd(val2_i), _mm_castsi128_pd(val1_i), mask)); \
+		val2 = _mm_permute_pd(val1, 0b01); \
+		val2_i = _mm_castpd_si128(_mm_permute_pd(_mm_castsi128_pd(val1_i), 0b01)); \
+		 \
+		mask = _mm_cmp_pd(val1, val2, _CMP_GT_OQ); \
+		val1 = _mm_blendv_pd(val2, val1, mask); \
+		val1_i = _mm_castpd_si128(_mm_blendv_pd(_mm_castsi128_pd(val2_i), _mm_castsi128_pd(val1_i), mask)); \
+		 \
+		double maxTmp = _mm_cvtsd_f64(val1); \
+		uint64_t indiceTmp = _mm_extract_epi64(val1_i, 0); \
+		if (maxTmp > max) \
+		{ \
+			 \
+			indice = indiceTmp; \
 		}
-		uint64_t maxIndicesArr[4];
-		double maxArr[4];
 
-		_mm256_storeu_epi64(maxIndicesArr, maxIndices);
-		_mm256_store_pd(maxArr, _max);
-
-		for (size_t i = 0; i < 4; i++)
+		if constexpr (parallel)
 		{
-			double data = maxArr[i];
-			if (data > max)
+			double max = DBL_MIN;
+			uint64_t indice = 0;
+
+			struct returnStruct
 			{
-				max = data;
-				indice = maxIndicesArr[i];
-			}
-		}
-		for (size_t i = finalPos; i < size; i++)
-		{
-			double data = data1[i];
-			if (data > max)
+				double max;
+				uint64_t indice;
+			};
+
+			returnStruct* arr = new returnStruct[parallel::threadsInfo.nThreads];
+			
+			void* parameters[2]{ data1, arr };
+			parallel::loopFunctionType func = [](parallel::loopParameters* params)
+				{
+					void** parameters = reinterpret_cast<void**>(params->extraParameters);
+					double* data1 = reinterpret_cast<double*>(parameters[0]);
+					returnStruct* arr = reinterpret_cast<returnStruct*>(parameters[1]);
+
+					size_t space = params->space;
+					size_t finalPos = params->start + ((space / 4) * 4);
+					
+					vectorDouble__argmax(params->start, finalPos, params->end);
+					arr[params->id].max = max;
+					arr[params->id].indice = indice;
+				};
+			parallel::parallelFor(func, 0, size, 4, parameters);
+
+			for (size_t i = 0; i < parallel::threadsInfo.nThreads; i++)
 			{
-				max = data;
-				indice = i;
+				if (arr[i].max > max)
+				{
+					max = arr[i].max;
+					indice = arr[i].indice;
+				}
 			}
+			return indice;
 		}
-		return indice;
+		else
+		{
+			vectorDouble__argmax(0, finalPos, size);
+			return indice;
+		}
 	}
 
 	// Min

@@ -53,15 +53,23 @@ namespace alge
     INITIALIZER(initialize)
     {
         uint64_t seeds[4];
-        _rdrand64_step(seeds);
-        _rdrand64_step(seeds + 1);
-        _rdrand64_step(seeds + 2);
-        _rdrand64_step(seeds + 3);
+        uint64_t seed;
+        _rdrand64_step(&seed);
+
+        seeds[0] = seed;
+
+        seed ^= seed << 14;
+        seeds[1] = seed;
+        seed ^= seed >> 16;
+        seeds[2] = seed;
+        seed ^= seed << 20;
+        seeds[3] = seed;
+
         __seeds__ = _mm256_loadu_epi64(seeds);
     }
 
-    //const double pi = std::numbers::pi;
-    //const double e = std::numbers::e;
+    static const double pi = std::numbers::pi;
+    static const double e = std::numbers::e;
 
     template <typename T>
     class vector
